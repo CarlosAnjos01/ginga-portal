@@ -21,9 +21,21 @@ export default function App() {
   const [selectedStage, setSelectedStage] = useState(1);
   const [answers, setAnswers] = useState({});
 
+  // ESTADOS DA MATRIZ E ROADMAP DINÂMICOS
+  const [matrixItems, setMatrixItems] = useState([]);
+  const [newMatrixTitle, setNewMatrixTitle] = useState("");
+  const [newMatrixDesc, setNewMatrixDesc] = useState("");
+  const [newMatrixQuadrant, setNewMatrixQuadrant] = useState("quick_win");
+
+  const [roadmapItems, setRoadmapItems] = useState([]);
+  const [newRoadmapTask, setNewRoadmapTask] = useState("");
+  const [newRoadmapPhase, setNewRoadmapPhase] = useState(30);
+
   useEffect(() => {
-    if (user && user.role === "client" && user.id) {
+    if (user && user.id) {
       loadImmersionAnswers(user.id);
+      loadMatrix(user.id);
+      loadRoadmap(user.id);
     }
   }, [user]);
 
@@ -31,11 +43,9 @@ export default function App() {
     try {
       const res = await fetch(`${API_URL}/immersion/answers?diagnostic_id=${diagnosticId}`);
       const data = await res.json();
-      if (data.success && data.answers) {
-        setAnswers(data.answers);
-      }
+      if (data.success && data.answers) setAnswers(data.answers);
     } catch (err) {
-      console.error("Erro ao carregar respostas salvas:", err);
+      console.error(err);
     }
   }
 
@@ -49,16 +59,79 @@ export default function App() {
         body: JSON.stringify({ diagnostic_id: user.id, answers })
       });
       const data = await res.json();
-      if (data.success) {
-        alert("Respostas gravadas com sucesso no banco de dados!");
-      } else {
-        alert("Erro ao salvar respostas: " + data.error);
-      }
+      if (data.success) alert("Respostas salvas no banco!");
     } catch (err) {
-      alert("Erro de conexão ao salvar respostas.");
+      alert("Erro ao salvar.");
     } finally {
       setSavingAnswers(false);
     }
+  }
+
+  // MATRIZ D1
+  async function loadMatrix(diagnosticId) {
+    try {
+      const res = await fetch(`${API_URL}/matrix?diagnostic_id=${diagnosticId}`);
+      const data = await res.json();
+      if (data.success) setMatrixItems(data.matrix);
+    } catch (err) { console.error(err); }
+  }
+
+  async function addMatrixItem(e) {
+    e.preventDefault();
+    if (!newMatrixTitle || !user) return;
+    try {
+      const res = await fetch(`${API_URL}/matrix`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ diagnostic_id: user.id, title: newMatrixTitle, description: newMatrixDesc, quadrant: newMatrixQuadrant })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setNewMatrixTitle("");
+        setNewMatrixDesc("");
+        loadMatrix(user.id);
+      }
+    } catch (err) { alert("Erro ao adicionar item."); }
+  }
+
+  async function deleteMatrixItem(id) {
+    try {
+      await fetch(`${API_URL}/matrix?id=${id}`, { method: "DELETE" });
+      loadMatrix(user.id);
+    } catch (err) { alert("Erro ao remover."); }
+  }
+
+  // ROADMAP D1
+  async function loadRoadmap(diagnosticId) {
+    try {
+      const res = await fetch(`${API_URL}/roadmap?diagnostic_id=${diagnosticId}`);
+      const data = await res.json();
+      if (data.success) setRoadmapItems(data.roadmap);
+    } catch (err) { console.error(err); }
+  }
+
+  async function addRoadmapItem(e) {
+    e.preventDefault();
+    if (!newRoadmapTask || !user) return;
+    try {
+      const res = await fetch(`${API_URL}/roadmap`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ diagnostic_id: user.id, phase: parseInt(newRoadmapPhase), task: newRoadmapTask, status: "pending" })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setNewRoadmapTask("");
+        loadRoadmap(user.id);
+      }
+    } catch (err) { alert("Erro ao adicionar tarefa."); }
+  }
+
+  async function deleteRoadmapItem(id) {
+    try {
+      await fetch(`${API_URL}/roadmap?id=${id}`, { method: "DELETE" });
+      loadRoadmap(user.id);
+    } catch (err) { alert("Erro ao remover."); }
   }
 
   async function handleLogin(e) {
@@ -103,14 +176,14 @@ export default function App() {
       const data = await res.json();
 
       if (data.success) {
-        setMessage("Senha alterada com sucesso! Faça login com a nova senha.");
+        setMessage("Senha alterada com sucesso!");
         setMode("login");
         setPassword(newPassword);
       } else {
         setError(data.error || "Erro ao alterar senha.");
       }
     } catch (err) {
-      setError("Erro de conexão ao redefinir senha.");
+      setError("Erro de conexão.");
     } finally {
       setLoading(false);
     }
@@ -126,7 +199,7 @@ export default function App() {
       const data = await res.json();
       if (data.success) setUser(data.user);
     } catch (err) {
-      alert("Erro ao acessar portal do cliente.");
+      alert("Erro ao acessar portal.");
     }
   }
 
@@ -136,7 +209,7 @@ export default function App() {
       const data = await res.json();
       if (data.success) setLeads(data.leads);
     } catch (err) {
-      console.error("Erro ao carregar leads:", err);
+      console.error(err);
     }
   }
 
@@ -253,7 +326,7 @@ export default function App() {
             {adminTab === "clients" && (
               <div className="card">
                 <h2>Projetos em Imersão Ativos</h2>
-                <p style={{ color: "var(--text-muted)", marginTop: "0.5rem" }}>Acompanhe e edite as 7 etapas dos clientes pagantes.</p>
+                <p style={{ color: "var(--text-muted)", marginTop: "0.5rem" }}>Use o botão 👁️ Acessar Portal na lista de leads para editar a Matriz e o Plano de qualquer cliente.</p>
               </div>
             )}
           </div>
@@ -261,7 +334,7 @@ export default function App() {
           <div>
             <div style={{ marginBottom: "1rem" }}>
               <h2>Imersão Comercial Ginga — {user.company}</h2>
-              <p style={{ color: "var(--text-muted)", fontSize: "0.9rem" }}>Respostas das 7 Etapas gravadas em tempo real no banco de dados.</p>
+              <p style={{ color: "var(--text-muted)", fontSize: "0.9rem" }}>Acompanhe os entregáveis do Diagnóstico Comercial de R$ 2.000,00.</p>
             </div>
 
             <div className="nav-tabs">
@@ -270,6 +343,7 @@ export default function App() {
               <button className={`tab-btn ${clientTab === "roadmap" ? "active" : ""}`} onClick={() => setClientTab("roadmap")}>3. Plano 30/60/90 Dias</button>
             </div>
 
+            {/* ABA 1: 7 ETAPAS */}
             {clientTab === "questions" && (
               <div>
                 <div style={{ display: "flex", gap: "0.5rem", overflowX: "auto", marginBottom: "1.5rem", paddingBottom: "0.5rem" }}>
@@ -291,34 +365,158 @@ export default function App() {
                     </div>
                   ))}
                   <button className="primary-button" onClick={saveImmersionAnswers} disabled={savingAnswers}>
-                    {savingAnswers ? "Gravando no Banco..." : "Salvar Respostas no Banco D1"}
+                    {savingAnswers ? "Gravando no Banco..." : "Salvar Respostas"}
                   </button>
                 </div>
               </div>
             )}
 
+            {/* ABA 2: MATRIZ DINÂMICA */}
             {clientTab === "matrix" && (
-              <div className="card">
-                <h3>Matriz de Impacto x Esforço — Priorização de Gargalos</h3>
-                <div className="matrix-grid">
-                  <div className="matrix-quadrant" style={{ borderColor: "var(--success)" }}>
-                    <div className="quadrant-title" style={{ color: "var(--success)" }}><span>⚡ Quick Wins</span><small>Alto Impacto / Baixo Esforço</small></div>
-                    <div className="item-badge"><strong>SLA Primeiro Atendimento</strong><p style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Etapa 4</p></div>
-                  </div>
-                  <div className="matrix-quadrant" style={{ borderColor: "var(--primary)" }}>
-                    <div className="quadrant-title" style={{ color: "var(--primary)" }}><span>🚀 Projetos Estratégicos</span><small>Alto Impacto / Alto Esforço</small></div>
-                    <div className="item-badge"><strong>CRM Kommo & Playbook</strong><p style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Etapa 2 e 4</p></div>
+              <div>
+                <div className="card" style={{ marginBottom: "1.5rem", borderStyle: "dashed" }}>
+                  <h4 style={{ color: "var(--primary)", marginBottom: "1rem" }}>➕ Adicionar Item na Matriz (Consultor Ginga)</h4>
+                  <form onSubmit={addMatrixItem} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                    <label className="field">
+                      <span>Título do Achado / Ação *</span>
+                      <input value={newMatrixTitle} onChange={e => setNewMatrixTitle(e.target.value)} required placeholder="Ex: Definir SLA do 1º Atendimento" />
+                    </label>
+                    <label className="field">
+                      <span>Quadrante da Matriz *</span>
+                      <select value={newMatrixQuadrant} onChange={e => setNewMatrixQuadrant(e.target.value)}>
+                        <option value="quick_win">⚡ Quick Win (Alto Impacto / Baixo Esforço)</option>
+                        <option value="strategic">🚀 Projeto Estratégico (Alto Impacto / Alto Esforço)</option>
+                        <option value="secondary">📋 Tarefa Secundária (Baixo Impacto / Baixo Esforço)</option>
+                        <option value="avoid">🛑 Evitar / Descartar (Baixo Impacto / Alto Esforço)</option>
+                      </select>
+                    </label>
+                    <label className="field" style={{ gridColumn: "span 2" }}>
+                      <span>Descrição / Detalhe</span>
+                      <input value={newMatrixDesc} onChange={e => setNewMatrixDesc(e.target.value)} placeholder="Detalhes do que deve ser feito" />
+                    </label>
+                    <button className="primary-button" style={{ gridColumn: "span 2" }}>Adicionar à Matriz</button>
+                  </form>
+                </div>
+
+                <div className="card">
+                  <h3>Matriz de Impacto x Esforço — {user.company}</h3>
+                  <div className="matrix-grid">
+                    <div className="matrix-quadrant" style={{ borderColor: "var(--success)" }}>
+                      <div className="quadrant-title" style={{ color: "var(--success)" }}><span>⚡ Quick Wins</span><small>Alto Impacto / Baixo Esforço</small></div>
+                      {matrixItems.filter(i => i.quadrant === 'quick_win').map(item => (
+                        <div key={item.id} className="item-badge" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <div>
+                            <strong>{item.title}</strong>
+                            {item.description && <p style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{item.description}</p>}
+                          </div>
+                          <button onClick={() => deleteMatrixItem(item.id)} style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer", fontWeight: 700 }}>✕</button>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="matrix-quadrant" style={{ borderColor: "var(--primary)" }}>
+                      <div className="quadrant-title" style={{ color: "var(--primary)" }}><span>🚀 Projetos Estratégicos</span><small>Alto Impacto / Alto Esforço</small></div>
+                      {matrixItems.filter(i => i.quadrant === 'strategic').map(item => (
+                        <div key={item.id} className="item-badge" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <div>
+                            <strong>{item.title}</strong>
+                            {item.description && <p style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{item.description}</p>}
+                          </div>
+                          <button onClick={() => deleteMatrixItem(item.id)} style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer", fontWeight: 700 }}>✕</button>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="matrix-quadrant" style={{ borderColor: "var(--warning)" }}>
+                      <div className="quadrant-title" style={{ color: "var(--warning)" }}><span>📋 Tarefas Secundárias</span><small>Baixo Impacto / Baixo Esforço</small></div>
+                      {matrixItems.filter(i => i.quadrant === 'secondary').map(item => (
+                        <div key={item.id} className="item-badge" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <div>
+                            <strong>{item.title}</strong>
+                            {item.description && <p style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{item.description}</p>}
+                          </div>
+                          <button onClick={() => deleteMatrixItem(item.id)} style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer", fontWeight: 700 }}>✕</button>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="matrix-quadrant" style={{ borderColor: "var(--danger)" }}>
+                      <div className="quadrant-title" style={{ color: "var(--danger)" }}><span>🛑 Descartar / Evitar</span><small>Baixo Impacto / Alto Esforço</small></div>
+                      {matrixItems.filter(i => i.quadrant === 'avoid').map(item => (
+                        <div key={item.id} className="item-badge" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <div>
+                            <strong>{item.title}</strong>
+                            {item.description && <p style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{item.description}</p>}
+                          </div>
+                          <button onClick={() => deleteMatrixItem(item.id)} style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer", fontWeight: 700 }}>✕</button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
             )}
 
+            {/* ABA 3: PLANO 30/60/90 DINÂMICO */}
             {clientTab === "roadmap" && (
-              <div className="card">
-                <h3>Plano de Ação 30 / 60 / 90 Dias</h3>
-                <div style={{ display: "flex", flexDirection: "column", gap: "1rem", marginTop: "1rem" }}>
-                  <div style={{ background: "var(--bg)", padding: "1rem", borderRadius: "0.375rem", borderLeft: "4px solid var(--primary)" }}>
-                    <strong style={{ color: "var(--primary)" }}>FASE 1 — 30 DIAS (Alinhamento & Quick Wins)</strong>
+              <div>
+                <div className="card" style={{ marginBottom: "1.5rem", borderStyle: "dashed" }}>
+                  <h4 style={{ color: "var(--primary)", marginBottom: "1rem" }}>➕ Adicionar Tarefa ao Plano (Consultor Ginga)</h4>
+                  <form onSubmit={addRoadmapItem} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                    <label className="field">
+                      <span>Descrição da Tarefa *</span>
+                      <input value={newRoadmapTask} onChange={e => setNewRoadmapTask(e.target.value)} required placeholder="Ex: Configurar etapas do funil no Kommo" />
+                    </label>
+                    <label className="field">
+                      <span>Fase de Execução *</span>
+                      <select value={newRoadmapPhase} onChange={e => setNewRoadmapPhase(e.target.value)}>
+                        <option value={30}>Fase 1 — Primeiro Mês (30 Dias)</option>
+                        <option value={60}>Fase 2 — Segundo Mês (60 Dias)</option>
+                        <option value={90}>Fase 3 — Terceiro Mês (90 Dias)</option>
+                      </select>
+                    </label>
+                    <button className="primary-button" style={{ gridColumn: "span 2" }}>Adicionar ao Roadmap</button>
+                  </form>
+                </div>
+
+                <div className="card">
+                  <h3>Plano de Ação 30 / 60 / 90 Dias</h3>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem", marginTop: "1.5rem" }}>
+                    <div style={{ background: "var(--bg)", padding: "1.25rem", borderRadius: "0.375rem", borderLeft: "4px solid var(--primary)" }}>
+                      <strong style={{ color: "var(--primary)", fontSize: "1.05rem" }}>FASE 1 — 30 DIAS (Alinhamento & Quick Wins)</strong>
+                      <div style={{ marginTop: "1rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                        {roadmapItems.filter(r => r.phase === 30).map(item => (
+                          <div key={item.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--surface)", padding: "0.65rem 1rem", borderRadius: "0.375rem" }}>
+                            <span style={{ fontSize: "0.9rem" }}>• {item.task}</span>
+                            <button onClick={() => deleteRoadmapItem(item.id)} style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer" }}>✕</button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div style={{ background: "var(--bg)", padding: "1.25rem", borderRadius: "0.375rem", borderLeft: "4px solid var(--warning)" }}>
+                      <strong style={{ color: "var(--warning)", fontSize: "1.05rem" }}>FASE 2 — 60 DIAS (Processo & CRM)</strong>
+                      <div style={{ marginTop: "1rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                        {roadmapItems.filter(r => r.phase === 60).map(item => (
+                          <div key={item.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--surface)", padding: "0.65rem 1rem", borderRadius: "0.375rem" }}>
+                            <span style={{ fontSize: "0.9rem" }}>• {item.task}</span>
+                            <button onClick={() => deleteRoadmapItem(item.id)} style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer" }}>✕</button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div style={{ background: "var(--bg)", padding: "1.25rem", borderRadius: "0.375rem", borderLeft: "4px solid var(--success)" }}>
+                      <strong style={{ color: "var(--success)", fontSize: "1.05rem" }}>FASE 3 — 90 DIAS (Gestão & Escala)</strong>
+                      <div style={{ marginTop: "1rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                        {roadmapItems.filter(r => r.phase === 90).map(item => (
+                          <div key={item.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--surface)", padding: "0.65rem 1rem", borderRadius: "0.375rem" }}>
+                            <span style={{ fontSize: "0.9rem" }}>• {item.task}</span>
+                            <button onClick={() => deleteRoadmapItem(item.id)} style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer" }}>✕</button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
