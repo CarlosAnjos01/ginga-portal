@@ -332,9 +332,18 @@ export default function App() {
           </div>
         ) : (
           <div>
-            <div style={{ marginBottom: "1rem" }}>
-              <h2>Imersão Comercial Ginga — {user.company}</h2>
-              <p style={{ color: "var(--text-muted)", fontSize: "0.9rem" }}>Acompanhe os entregáveis do Diagnóstico Comercial de R$ 2.000,00.</p>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+              <div>
+                <h2>Imersão Comercial Ginga — {user.company}</h2>
+                <p style={{ color: "var(--text-muted)", fontSize: "0.9rem" }}>Acompanhe os entregáveis do Diagnóstico Comercial de R$ 2.000,00.</p>
+              </div>
+              <button 
+                className="primary-button" 
+                style={{ background: "var(--surface-card)", border: "1px solid var(--border)", fontSize: "0.8rem" }}
+                onClick={() => window.print()}
+              >
+                📄 Exportar PDF / Imprimir
+              </button>
             </div>
 
             <div className="nav-tabs">
