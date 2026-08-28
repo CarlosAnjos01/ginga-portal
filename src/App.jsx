@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import "./index.css";
 import { gingaStages, fullQuestions } from "./data/questionsFull";
 
@@ -6,11 +6,12 @@ const API_URL = "https://shy-dawn-31acdiagnostico-api.carlos-fe4.workers.dev/api
 
 export default function App() {
   const [user, setUser] = useState(null);
-  const [mode, setMode] = useState("login"); // login | forgot
+  const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [savingAnswers, setSavingAnswers] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   
@@ -19,6 +20,46 @@ export default function App() {
   const [clientTab, setClientTab] = useState("questions");
   const [selectedStage, setSelectedStage] = useState(1);
   const [answers, setAnswers] = useState({});
+
+  useEffect(() => {
+    if (user && user.role === "client" && user.id) {
+      loadImmersionAnswers(user.id);
+    }
+  }, [user]);
+
+  async function loadImmersionAnswers(diagnosticId) {
+    try {
+      const res = await fetch(`${API_URL}/immersion/answers?diagnostic_id=${diagnosticId}`);
+      const data = await res.json();
+      if (data.success && data.answers) {
+        setAnswers(data.answers);
+      }
+    } catch (err) {
+      console.error("Erro ao carregar respostas salvas:", err);
+    }
+  }
+
+  async function saveImmersionAnswers() {
+    if (!user || !user.id) return;
+    setSavingAnswers(true);
+    try {
+      const res = await fetch(`${API_URL}/immersion/answers`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ diagnostic_id: user.id, answers })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert("Respostas gravadas com sucesso no banco de dados!");
+      } else {
+        alert("Erro ao salvar respostas: " + data.error);
+      }
+    } catch (err) {
+      alert("Erro de conexão ao salvar respostas.");
+    } finally {
+      setSavingAnswers(false);
+    }
+  }
 
   async function handleLogin(e) {
     e.preventDefault();
@@ -99,7 +140,6 @@ export default function App() {
     }
   }
 
-  // TELA DE LOGIN & ESQUECI MINHA SENHA
   if (!user) {
     return (
       <div className="app-shell" style={{ justifyContent: "center", alignItems: "center" }}>
@@ -111,17 +151,8 @@ export default function App() {
             {mode === "login" ? "Portal do Cliente & Área de Gestão" : "Recuperação de Senha"}
           </p>
 
-          {message && (
-            <div style={{ background: "#10B98120", border: "1px solid var(--success)", color: "var(--success)", padding: "0.65rem", borderRadius: "0.375rem", fontSize: "0.85rem", marginBottom: "1rem" }}>
-              {message}
-            </div>
-          )}
-
-          {error && (
-            <div style={{ background: "#EF444420", border: "1px solid var(--danger)", color: "var(--danger)", padding: "0.65rem", borderRadius: "0.375rem", fontSize: "0.85rem", marginBottom: "1rem" }}>
-              {error}
-            </div>
-          )}
+          {message && <div style={{ background: "#10B98120", border: "1px solid var(--success)", color: "var(--success)", padding: "0.65rem", borderRadius: "0.375rem", fontSize: "0.85rem", marginBottom: "1rem" }}>{message}</div>}
+          {error && <div style={{ background: "#EF444420", border: "1px solid var(--danger)", color: "var(--danger)", padding: "0.65rem", borderRadius: "0.375rem", fontSize: "0.85rem", marginBottom: "1rem" }}>{error}</div>}
 
           {mode === "login" ? (
             <form onSubmit={handleLogin}>
@@ -132,7 +163,6 @@ export default function App() {
               <label className="field">
                 <span>Senha *</span>
                 <input type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••" />
-                <small style={{ color: "var(--text-muted)", marginTop: "0.2rem" }}>* No primeiro acesso, a senha digitada será registrada como sua senha oficial.</small>
               </label>
               <button className="primary-button" style={{ width: "100%", marginTop: "0.75rem" }} disabled={loading}>
                 {loading ? "Autenticando..." : "Entrar no Portal"}
@@ -190,14 +220,12 @@ export default function App() {
       </header>
 
       <main>
-        {/* VISÃO ADMIN */}
         {user.role === "admin" ? (
           <div>
             {adminTab === "leads" && (
               <div>
                 <h2>Diagnósticos Recebidos</h2>
-                <p style={{ color: "var(--text-muted)", fontSize: "0.9rem", marginBottom: "1rem" }}>Leads do Raio-X Gratuito e controle de acesso direto ao portal.</p>
-                <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+                <div className="card" style={{ padding: 0, overflow: "hidden", marginTop: "1rem" }}>
                   <table className="table">
                     <thead>
                       <tr><th>Empresa</th><th>Contato</th><th>E-mail</th><th>Score</th><th>Gargalo</th><th>Acesso Admin</th></tr>
@@ -225,16 +253,15 @@ export default function App() {
             {adminTab === "clients" && (
               <div className="card">
                 <h2>Projetos em Imersão Ativos</h2>
-                <p style={{ color: "var(--text-muted)", marginTop: "0.5rem" }}>Gestão dos relatórios de R$ 2.000,00.</p>
+                <p style={{ color: "var(--text-muted)", marginTop: "0.5rem" }}>Acompanhe e edite as 7 etapas dos clientes pagantes.</p>
               </div>
             )}
           </div>
         ) : (
-          /* VISÃO CLIENTE PAGO (/portal) */
           <div>
             <div style={{ marginBottom: "1rem" }}>
               <h2>Imersão Comercial Ginga — {user.company}</h2>
-              <p style={{ color: "var(--text-muted)", fontSize: "0.9rem" }}>Acompanhe as respostas das 7 etapas da Metodologia Ginga e a Matriz Priorizada.</p>
+              <p style={{ color: "var(--text-muted)", fontSize: "0.9rem" }}>Respostas das 7 Etapas gravadas em tempo real no banco de dados.</p>
             </div>
 
             <div className="nav-tabs">
@@ -263,7 +290,9 @@ export default function App() {
                       <textarea rows="3" placeholder="Registrar resposta do cliente/time..." value={answers[q.id] || ""} onChange={e => setAnswers({...answers, [q.id]: e.target.value})} />
                     </div>
                   ))}
-                  <button className="primary-button" onClick={() => alert("Respostas salvas!")}>Salvar Respostas</button>
+                  <button className="primary-button" onClick={saveImmersionAnswers} disabled={savingAnswers}>
+                    {savingAnswers ? "Gravando no Banco..." : "Salvar Respostas no Banco D1"}
+                  </button>
                 </div>
               </div>
             )}
@@ -280,14 +309,6 @@ export default function App() {
                     <div className="quadrant-title" style={{ color: "var(--primary)" }}><span>🚀 Projetos Estratégicos</span><small>Alto Impacto / Alto Esforço</small></div>
                     <div className="item-badge"><strong>CRM Kommo & Playbook</strong><p style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Etapa 2 e 4</p></div>
                   </div>
-                  <div className="matrix-quadrant" style={{ borderColor: "var(--warning)" }}>
-                    <div className="quadrant-title" style={{ color: "var(--warning)" }}><span>📋 Tarefas Secundárias</span><small>Baixo Impacto / Baixo Esforço</small></div>
-                    <div className="item-badge"><strong>Padronização de Propostas</strong><p style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Etapa 5</p></div>
-                  </div>
-                  <div className="matrix-quadrant" style={{ borderColor: "var(--danger)" }}>
-                    <div className="quadrant-title" style={{ color: "var(--danger)" }}><span>🛑 Descartar / Evitar</span><small>Baixo Impacto / Alto Esforço</small></div>
-                    <div className="item-badge"><strong>Mudança de ERP Financeiro</strong><p style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Etapa 6</p></div>
-                  </div>
                 </div>
               </div>
             )}
@@ -298,12 +319,6 @@ export default function App() {
                 <div style={{ display: "flex", flexDirection: "column", gap: "1rem", marginTop: "1rem" }}>
                   <div style={{ background: "var(--bg)", padding: "1rem", borderRadius: "0.375rem", borderLeft: "4px solid var(--primary)" }}>
                     <strong style={{ color: "var(--primary)" }}>FASE 1 — 30 DIAS (Alinhamento & Quick Wins)</strong>
-                  </div>
-                  <div style={{ background: "var(--bg)", padding: "1rem", borderRadius: "0.375rem", borderLeft: "4px solid var(--warning)" }}>
-                    <strong style={{ color: "var(--warning)" }}>FASE 2 — 60 DIAS (Processo & CRM)</strong>
-                  </div>
-                  <div style={{ background: "var(--bg)", padding: "1rem", borderRadius: "0.375rem", borderLeft: "4px solid var(--success)" }}>
-                    <strong style={{ color: "var(--success)" }}>FASE 3 — 90 DIAS (Gestão & Escala)</strong>
                   </div>
                 </div>
               </div>
